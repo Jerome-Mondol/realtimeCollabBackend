@@ -18,6 +18,7 @@ const io = new Server(httpServer, {
 app.use(bodyParser.json());
 
 const emailToSocketMapping = new Map();
+const socketToEmailMapping = new Map();
 
 io.on('connection', socket => {
     
@@ -25,15 +26,27 @@ io.on('connection', socket => {
         const { roomId, emailId } = data;
         console.log('user', emailId, "joined room", roomId);
         emailToSocketMapping.set(emailId, socket.id);
+        socketToEmailMapping.set(socket.id, emailId)
         socket.join(roomId);
         socket.emit('joined-room', {roomId, })
         socket.broadcast.to(roomId).emit('user-joined', { emailId });
     });
+
+    socket.on('call-user', data => {   
+        const {emailId, offer} = data;
+        const fromEmail = socketToEmailMapping.get(socket.id);
+        const socketId = emailToSocketMapping.get(emailId);
+        socket.to(socketId).emit('incomming-call', { from: fromEmail, offer });
+    });
+
+    socket.on('call-accepted', data => {
+        const { emailId, ans } = data;
+        const socketId = emailToSocketMapping.get(emailId);
+        socket.to(socketId).emit('call-accepted', { ans })
+    })
 });
 
-// Use the shared httpServer to listen on the port
-// You can choose to have both listen on the same port (e.g., 8000)
-// For this example, I'll put it on 8001 as per your client code.
+
 httpServer.listen(8001, () => {
     console.log("Server started and listening on port 8001");
 });
